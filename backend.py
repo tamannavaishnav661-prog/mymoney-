@@ -109,6 +109,9 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Auto-initialize database on startup for Gunicorn / Render
+init_db()
+
 def get_db():
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
@@ -302,13 +305,13 @@ def add_tx():
         return jsonify({"success": False, "message": "Invalid data"}), 400
 
     conn = get_db()
-    conn.execute("""
+    c = conn.execute("""
     INSERT INTO transactions (user_id, date, time, description, type, mode, amount, is_deleted)
     VALUES (?, ?, ?, ?, ?, ?, ?, 0)
     """, (user_id, tx_date, time_str, desc, tx_type, mode, amount))
     conn.commit()
     conn.close()
-    return jsonify({"success": True, "message": "Saved securely to user's private ledger!"})
+    return jsonify({"success": True, "id": c.lastrowid, "message": "Saved securely to user's private ledger!"})
 
 # Delete Transaction (User Isolated Soft-Delete)
 @app.route("/api/transactions/<int:tx_id>", methods=["DELETE"])
@@ -316,7 +319,7 @@ def delete_tx(tx_id):
     user_id = int(request.args.get("user_id", 1))
     conn = get_db()
     now_str = datetime.now().isoformat()
-    conn.execute("""
+    c = conn.execute("""
         UPDATE transactions 
         SET is_deleted = 1, deleted_at = ? 
         WHERE id = ? AND user_id = ?
@@ -358,6 +361,25 @@ def send_email_backup():
 
     return jsonify({"success": True, "message": f"Private ledger backup dispatched to {email}!"})
 
+
+# Update / Set Opening Balance
+@app.route("/api/opening-balance", methods=["POST"])
+def update_opening_balance():
+    data = request.json or {}
+    user_id = int(data.get("user_id", 1))
+    req_date = data.get("date", date.today().isoformat())
+    cash = float(data.get("opening_cash", 0))
+    online = float(data.get("opening_online", 0))
+
+    conn = get_db()
+    existing = conn.execute("SELECT id FROM daily_balances WHERE user_id = ? AND date = ?", (user_id, req_date)).fetchone()
+    if existing:
+        conn.execute("UPDATE daily_balances SET opening_cash = ?, opening_online = ? WHERE id = ?", (cash, online, existing["id"]))
+    else:
+        conn.execute("INSERT INTO daily_balances (user_id, date, opening_cash, opening_online) VALUES (?, ?, ?, ?)", (user_id, req_date, cash, online))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "Opening balance updated successfully!"})
 
 if __name__ == "__main__":
     init_db()
