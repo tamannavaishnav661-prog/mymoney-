@@ -835,7 +835,10 @@
         // @ts-nocheck
         /* eslint-disable */
 
-        const BACKEND_URL = window.location.origin.includes('5000') ? window.location.origin : 'http://127.0.0.1:5000';
+        // Production + Local dynamic backend URL detection
+        const BACKEND_URL = (window.location.origin === 'null' || window.location.protocol === 'file:') 
+            ? 'http://127.0.0.1:5000' 
+            : window.location.origin;
         let currentUser = null;
         let authMode = 'signin'; // 'signin' or 'signup'
         let activeModule = 3;
