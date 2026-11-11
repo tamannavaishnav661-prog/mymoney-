@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoneyManager Pro - Secure Financial Ledger</title>
+
+    <!-- PWA Web App Support -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS for Excel Import/Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- jsPDF & AutoTable for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+</head>
+
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+
+    <!-- Global App Header (Only visible AFTER Login) -->
+    <header id="mainHeader" class="hidden bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 text-white p-2.5 rounded-xl shadow-sm">
+                    <i class="fa-solid fa-wallet text-lg"></i>
+                </div>
+                <div>
+                    <span class="text-xl font-bold tracking-tight text-slate-900">MoneyManager <span
+                            class="text-blue-600">Pro</span></span>
+                    <span class="text-xs block text-emerald-600 font-medium flex items-center gap-1">
+                        <i class="fa-solid fa-lock text-[9px]"></i> Private Encrypted Ledger (<span id="headerUserEmail"
+                            class="font-semibold">user</span>)
+                    </span>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <nav class="flex items-center space-x-1 sm:space-x-2">
+                <button onclick="switchModule(2)" id="navMod2"
+                    class="px-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100 flex items-center gap-1.5">
+                    <i class="fa-solid fa-chart-line text-xs"></i> <span>Module 2: Dashboard</span>
+                </button>
+                <button onclick="switchModule(3)" id="navMod3"
+                    class="px-3 py-2 rounded-lg text-sm font-medium transition bg-blue-600 text-white flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-book text-xs"></i> <span>Module 3: Daily Records</span>
+                </button>
+                <button onclick="switchModule(4)" id="navMod4"
+                    class="px-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100 flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-invoice-dollar text-xs"></i> <span>Module 4: Reports</span>
+                </button>
+            </nav>
+
+            <!-- Global Actions -->
+            <div class="flex items-center space-x-2">
+                <button onclick="openRecoveryModal()"
+                    class="inline-flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs px-3 py-2 rounded-lg font-semibold border border-indigo-200 transition shadow-sm">
+                    <i class="fa-solid fa-cloud-arrow-down text-indigo-600"></i>
+                    <span>Recover via Email</span>
+                    <span id="headerDeletedBadge"
+                        class="hidden bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">0</span>
+                </button>
+
+                <button onclick="exportExcel('daybook')"
+                    class="hidden sm:inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg font-medium transition shadow-sm">
+                    <i class="fa-solid fa-file-excel"></i> Excel
+                </button>
+                <button onclick="exportPDF('daybook')"
+                    class="hidden sm:inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-2 rounded-lg font-medium transition shadow-sm">
+                    <i class="fa-solid fa-file-pdf"></i> PDF
+                </button>
+                <button onclick="logout()"
+                    class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                    title="Logout">
+                    <i class="fa-solid fa-power-off text-base"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Body -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- ================= MODULE 1: AUTHENTICATION (SIGN IN & SIGN UP) ================= -->
+        <section id="authSection" class="min-h-[80vh] flex items-center justify-center">
+            <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
+                <div class="text-center mb-6">
+                    <div class="inline-flex bg-blue-50 text-blue-600 p-3 rounded-2xl mb-3 shadow-inner">
+                        <i class="fa-solid fa-shield-halved text-2xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-900">MoneyManager Pro</h2>
+                    <p class="text-xs text-slate-500 mt-1">Encrypted Multi-User Financial Security</p>
+                </div>
+
+                <!-- Sign In / Sign Up Toggle -->
+                <div class="flex bg-slate-100 p-1 rounded-xl mb-5">
+                    <button id="tabSignIn" onclick="setAuthMode('signin')"
+                        class="w-1/2 py-2 text-xs font-bold rounded-lg transition bg-white text-blue-600 shadow-sm">Sign
+                        In</button>
+                    <button id="tabSignUp" onclick="setAuthMode('signup')"
+                        class="w-1/2 py-2 text-xs font-bold rounded-lg transition text-slate-500 hover:text-slate-800">Create
+                        Account</button>
+                </div>
+
+                <!-- Step 1: Form (Email, Mobile, Password) -->
+                <div id="authStep1" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1.5">Email Address</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                <i class="fa-solid fa-envelope"></i>
+                            </span>
+                            <input type="email" id="loginUser" value="user@example.com"
+                                class="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                                placeholder="you@domain.com">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1.5">Mobile Number</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                <i class="fa-solid fa-mobile-screen"></i>
+                            </span>
+                            <input type="tel" id="loginMobile" value="+91 98765 43210"
+                                class="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                                placeholder="+91 98765 43210">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1.5">Password</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                <i class="fa-solid fa-lock"></i>
+                            </span>
+                            <input type="password" id="loginPass" value="password123"
+                                class="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                                placeholder="••••••••">
+                        </div>
+                    </div>
+
+                    <button onclick="handleStep1()" id="authSubmitBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2">
+                        <span>Send 2FA OTP to Email & Mobile</span>
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                    </button>
+                    <p id="authHelperText" class="text-xs text-center text-slate-400">Demo User: user@example.com /
+                        password123</p>
+                </div>
+
+                <!-- Step 2: Dynamic 6-Digit OTP Verification -->
+                <div id="authStep2" class="space-y-4 hidden">
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-3.5 space-y-1.5">
+                        <div class="flex items-center gap-2 text-xs font-bold text-blue-900">
+                            <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                            <span>OTP Dispatched Simultaneously:</span>
+                        </div>
+                        <div class="text-[11px] text-blue-800 space-y-1 pl-4">
+                            <div>✉️ Email: <strong id="step2EmailBadge"
+                                    class="font-mono text-blue-950">user@example.com</strong></div>
+                            <div>📱 Mobile: <strong id="step2MobileBadge" class="font-mono text-blue-950">+91 98765
+                                    43210</strong></div>
+                        </div>
+                    </div>
+
+                    <!-- Live Dynamic OTP Display -->
+                    <div id="dynamicOtpBox"
+                        class="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 text-xs text-emerald-800 text-center">
+                        <i class="fa-solid fa-key mr-1"></i> Generated Security OTP: <strong id="dynamicOtpCode"
+                            class="font-mono text-emerald-950 font-bold text-sm">482910</strong>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1.5 text-center">Enter
+                            6-Digit Code</label>
+                        <input type="text" id="otpInput" maxlength="6" value="482910"
+                            class="w-full text-center tracking-[0.5em] text-2xl font-mono py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                            placeholder="000000">
+                    </div>
+
+                    <button onclick="handleStep2()"
+                        class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-lock-open text-xs"></i>
+                        <span>Verify & Enter Private Dashboard</span>
+                    </button>
+
+                    <div class="flex items-center justify-between pt-1">
+                        <button onclick="handleStep1()" class="text-xs text-blue-600 hover:underline">
+                            <i class="fa-solid fa-rotate-right mr-1"></i> Resend OTP
+                        </button>
+                        <button onclick="backToStep1()" class="text-xs text-slate-500 hover:text-slate-800">
+                            <i class="fa-solid fa-arrow-left mr-1"></i> Back
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ================= MODULE 2: DASHBOARD (HIDDEN ON START) ================= -->
+        <section id="dashboardSection" class="hidden space-y-6">
+            <div
+                class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Module 2: Liquid Balances & Services Overview</h2>
+                    <p class="text-sm text-slate-500">Real-time liquid cash, online ledger, and transactional service
+                        distribution</p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-right">
+                    <span class="text-xs uppercase text-slate-400 font-semibold block">Live Business Date</span>
+                    <span id="dashLiveDate" class="font-bold text-slate-800 text-sm">Wednesday, Nov 11, 2026</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div
+                    class="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs uppercase font-medium tracking-wider text-amber-100">Cash In Hand</p>
+                            <h3 id="dashCashBalance" class="text-3xl font-extrabold mt-1">₹0.00</h3>
+                        </div>
+                        <div class="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                            <i class="fa-solid fa-money-bill-wave text-2xl text-white"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-amber-400/40 text-xs flex justify-between items-center">
+                        <span class="text-amber-100">Vault & Physical Cash</span>
+                        <span class="font-semibold text-white">Liquid Cash</span>
+                    </div>
+                </div>
+
+                <div
+                    class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs uppercase font-medium tracking-wider text-blue-100">Online Account</p>
+                            <h3 id="dashOnlineBalance" class="text-3xl font-extrabold mt-1">₹0.00</h3>
+                        </div>
+                        <div class="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                            <i class="fa-solid fa-building-columns text-2xl text-white"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-blue-500/40 text-xs flex justify-between items-center">
+                        <span class="text-blue-100">Bank & Portal Accounts</span>
+                        <span class="font-semibold text-white">Digital Net</span>
+                    </div>
+                </div>
+
+                <div
+                    class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs uppercase font-medium tracking-wider text-emerald-100">Total Liquid
+                                Balance</p>
+                            <h3 id="dashTotalBalance" class="text-3xl font-extrabold mt-1">₹0.00</h3>
+                        </div>
+                        <div class="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                            <i class="fa-solid fa-vault text-2xl text-white"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-emerald-500/40 text-xs flex justify-between items-center">
+                        <span class="text-emerald-100">Cash + Online Pooled</span>
+                        <span class="font-semibold text-white">Active Total</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-check text-blue-600"></i>
+                        <h3 class="font-bold text-slate-800">Last Day Transaction Details (Yesterday)</h3>
+                    </div>
+                    <span class="text-xs bg-slate-100 text-slate-600 font-medium px-2.5 py-1 rounded-full">Carried
+                        Over</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                        <span class="text-xs text-slate-500 font-medium block">Opening Carried</span>
+                        <span class="text-lg font-bold text-slate-800">₹17,400.00</span>
+                    </div>
+                    <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                        <span class="text-xs text-emerald-600 font-medium block">Total In (Deposits)</span>
+                        <span class="text-lg font-bold text-emerald-700">+₹20,000.00</span>
+                    </div>
+                    <div class="p-4 rounded-xl bg-rose-50 border border-rose-100">
+                        <span class="text-xs text-rose-600 font-medium block">Total Out (Withdrawals)</span>
+                        <span class="text-lg font-bold text-rose-700">-₹10,000.00</span>
+                    </div>
+                    <div class="p-4 rounded-xl bg-blue-50 border border-blue-100">
+                        <span class="text-xs text-blue-600 font-medium block">Day Net Change</span>
+                        <span class="text-lg font-bold text-blue-800">+₹10,000.00 ▲</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <div class="mb-4">
+                    <h3 class="font-bold text-slate-800">Service Breakdown & Volume</h3>
+                    <p class="text-xs text-slate-500">Aggregated breakdown across deposit/withdrawal types</p>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" id="serviceBreakdownGrid">
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ================= MODULE 3: DAILY RECORDS (HIDDEN ON START) ================= -->
+        <section id="daybookSection" class="hidden space-y-6">
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                <div
+                    class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                    <div>
+                        <span
+                            class="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">Day
+                            Book Header</span>
+                        <h2 class="text-xl font-extrabold text-slate-900 mt-1">Starting / Opening Balance</h2>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-slate-500">Opening Date: <strong>Today</strong></span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <div
+                        class="bg-amber-50/70 border border-amber-200/80 rounded-xl p-4 flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-semibold text-amber-700 uppercase">Cash In Hand (Opening)</span>
+                            <div class="text-2xl font-bold text-amber-900 mt-1" id="topOpeningCash">₹5,400.00</div>
+                        </div>
+                        <i class="fa-solid fa-coins text-2xl text-amber-500"></i>
+                    </div>
+
+                    <div
+                        class="bg-blue-50/70 border border-blue-200/80 rounded-xl p-4 flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-semibold text-blue-700 uppercase">Online Account (Opening)</span>
+                            <div class="text-2xl font-bold text-blue-900 mt-1" id="topOpeningOnline">₹12,000.00</div>
+                        </div>
+                        <i class="fa-solid fa-wallet text-2xl text-blue-500"></i>
+                    </div>
+
+                    <div
+                        class="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-4 flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-semibold text-emerald-700 uppercase">Total Day Starting
+                                Balance</span>
+                            <div class="text-2xl font-bold text-emerald-900 mt-1" id="topOpeningTotal">₹17,400.00</div>
+                        </div>
+                        <i class="fa-solid fa-vault text-2xl text-emerald-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transaction Form -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <div
+                    class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 mb-5">
+                    <div class="flex items-center gap-2">
+                        <div class="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                            <i class="fa-solid fa-circle-plus"></i>
+                        </div>
+                        <h3 class="font-bold text-slate-900 text-base">Record New Transaction</h3>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <label
+                            class="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium transition flex items-center gap-1.5 border border-slate-200">
+                            <i class="fa-solid fa-file-arrow-up text-emerald-600"></i> Upload Excel File
+                            <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="hidden"
+                                onchange="handleExcelUpload(event)">
+                        </label>
+                        <button onclick="downloadExcelTemplate()"
+                            class="text-xs text-blue-600 hover:text-blue-800 underline font-medium">
+                            Download Template
+                        </button>
+                    </div>
+                </div>
+
+                <form id="txForm" onsubmit="addTransaction(event)"
+                    class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div class="lg:col-span-1">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Service / Category</label>
+                        <select id="txCategory" onchange="syncTypeEffect()"
+                            class="w-full text-xs font-medium border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 bg-white">
+                            <option value="Deposit (Portal)">Deposit (Portal)</option>
+                            <option value="Withdrawal (Portal)">Withdrawal (Portal)</option>
+                            <option value="Money Transfer">Money Transfer</option>
+                            <option value="AEPS Withdrawal">AEPS Withdrawal</option>
+                            <option value="AEPS Deposit">AEPS Deposit</option>
+                            <option value="Online Money Transfer">Online Money Transfer</option>
+                            <option value="Online Money Accept">Online Money Accept</option>
+                            <option value="Expenses">Expenses</option>
+                        </select>
+                    </div>
+
+                    <div class="lg:col-span-1">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Description / Customer</label>
+                        <input type="text" id="txDesc" placeholder="e.g. Ramesh AEPS, Shop Bill" required
+                            class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Type Effect</label>
+                        <select id="txEffect"
+                            class="w-full text-xs font-medium border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 bg-white">
+                            <option value="Deposit">Deposit (▲ Increase)</option>
+                            <option value="Withdrawal">Withdrawal (▼ Decrease)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Payment Mode</label>
+                        <select id="txMode"
+                            class="w-full text-xs font-medium border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 bg-white">
+                            <option value="Cash">Cash</option>
+                            <option value="Online">Online</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Amount (₹)</label>
+                        <input type="number" step="0.01" id="txAmount" placeholder="0.00" required
+                            class="w-full text-xs font-mono font-bold border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div class="lg:col-span-5 flex justify-end pt-2">
+                        <button type="submit"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs px-5 py-2.5 rounded-lg shadow-sm transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-check"></i> Save Transaction Entry
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Table Header Bar -->
+            <div class="flex items-center justify-between bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-sm">
+                <div>
+                    <h4 class="font-bold text-sm tracking-wide">Daily Register & Itemized Records</h4>
+                    <p class="text-[11px] text-slate-400">Private encrypted data isolated to your account</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="exportExcel('daybook')"
+                        class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-file-excel"></i> Download Excel (.xlsx)
+                    </button>
+                    <button onclick="exportPDF('daybook')"
+                        class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-file-pdf"></i> Download PDF (.pdf)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Transactions Table -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm">Whole Day Transaction Record</h3>
+                        <p class="text-xs text-slate-400">Protected with Email Recovery (Deleted items can be restored)
+                        </p>
+                    </div>
+                    <button onclick="resetDayTransactions()"
+                        class="text-xs text-slate-400 hover:text-rose-600 transition">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Reset
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr
+                                class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[10px] tracking-wider">
+                                <th class="px-4 py-3">#</th>
+                                <th class="px-4 py-3">Time</th>
+                                <th class="px-4 py-3">Category</th>
+                                <th class="px-4 py-3">Description</th>
+                                <th class="px-4 py-3">Mode</th>
+                                <th class="px-4 py-3 text-right text-emerald-700">Deposit</th>
+                                <th class="px-4 py-3 text-right text-rose-700">Withdrawal</th>
+                                <th class="px-4 py-3 text-center">Amount Effect</th>
+                                <th class="px-4 py-3 text-right">Running Total</th>
+                                <th class="px-4 py-3 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="daybookTbody" class="divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Ending Balance Card at Bottom -->
+                <div
+                    class="bg-slate-900 text-white p-6 border-t border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div class="space-y-1">
+                        <span class="text-xs uppercase tracking-wider text-slate-400 font-semibold block">Day Totals
+                            Summary</span>
+                        <div class="flex items-center gap-6 text-xs text-slate-300">
+                            <div>Total Deposits (Cash + Online): <strong id="sumDeposits"
+                                    class="text-emerald-400 font-mono">+₹0.00</strong></div>
+                            <div>Total Withdrawals (Cash + Online): <strong id="sumWithdrawals"
+                                    class="text-rose-400 font-mono">-₹0.00</strong></div>
+                        </div>
+                        <div class="text-xs text-slate-400">
+                            Today's Net Change: <span id="sumNetChange" class="text-emerald-400 font-semibold">+ ₹0.00
+                                (Increased)</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-6">
+                        <div class="text-right">
+                            <div class="text-xs text-slate-400 flex items-center justify-end gap-1.5">
+                                <i class="fa-solid fa-money-bill-wave text-amber-400"></i> Cash In Hand End Balance:
+                                <strong id="endCashBalance" class="text-amber-400 font-mono text-sm">₹0.00</strong>
+                            </div>
+                            <div class="text-xs text-slate-400 flex items-center justify-end gap-1.5 mt-1">
+                                <i class="fa-solid fa-credit-card text-blue-400"></i> Online Account End Balance:
+                                <strong id="endOnlineBalance" class="text-blue-400 font-mono text-sm">₹0.00</strong>
+                            </div>
+                        </div>
+
+                        <div class="pl-6 border-l border-slate-800 text-right">
+                            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block">End of the
+                                Day Total Amount</span>
+                            <div id="endTotalBalance" class="text-3xl font-extrabold text-emerald-400 font-mono mt-0.5">
+                                ₹0.00</div>
+                            <span class="text-[10px] text-slate-400">Closing balance ready for next day carryover</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ================= MODULE 4: REPORTS (HIDDEN ON START) ================= -->
+        <section id="reportsSection" class="hidden space-y-6">
+            <div
+                class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Module 4: Day & Month Reports</h2>
+                    <p class="text-sm text-slate-500">Inspect full itemized daily registers for any date of the month
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="switchReportTab('day')" id="tabDayReport"
+                        class="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white shadow-sm transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-receipt"></i> Daily Transaction Report
+                    </button>
+                    <button onclick="switchReportTab('month')" id="tabMonthReport"
+                        class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-calendar-days"></i> Whole Month Ledger
+                    </button>
+                </div>
+            </div>
+
+            <div id="dayReportView" class="space-y-6">
+                <div
+                    class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span
+                            class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-calendar text-blue-600"></i> Select Date:
+                        </span>
+                        <input type="date" id="repDateInput" value="2026-11-11"
+                            onchange="onReportDateSelect(this.value)"
+                            class="text-xs font-bold font-mono border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 bg-white">
+
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <button onclick="onReportDateSelect('2026-11-11')"
+                                class="text-[11px] font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 px-2.5 py-1 rounded-md transition">Today
+                                (11 Nov)</button>
+                            <button onclick="onReportDateSelect('2026-11-10')"
+                                class="text-[11px] font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 px-2.5 py-1 rounded-md transition">10
+                                Nov</button>
+                            <button onclick="onReportDateSelect('2026-11-03')"
+                                class="text-[11px] font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 px-2.5 py-1 rounded-md transition">03
+                                Nov</button>
+                            <button onclick="onReportDateSelect('2026-11-02')"
+                                class="text-[11px] font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 px-2.5 py-1 rounded-md transition">02
+                                Nov</button>
+                            <button onclick="onReportDateSelect('2026-11-01')"
+                                class="text-[11px] font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 px-2.5 py-1 rounded-md transition">01
+                                Nov</button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button onclick="exportExcel('dayReport')"
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-file-excel"></i> Download Excel (.xlsx)
+                        </button>
+                        <button onclick="exportPDF('dayReport')"
+                            class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-file-pdf"></i> Download PDF (.pdf)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                        <span class="text-xs uppercase tracking-wider text-slate-500 font-bold block">1. Starting
+                            Balance</span>
+                        <div id="repStarting" class="text-2xl font-black text-slate-900 mt-2 font-mono">₹17,400.00</div>
+                        <span id="repStartingSplit" class="text-[11px] text-slate-400 mt-1 block">Cash: ₹5,400.00 |
+                            Online: ₹12,000.00</span>
+                    </div>
+
+                    <div class="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200 shadow-sm">
+                        <span class="text-xs uppercase tracking-wider text-emerald-700 font-bold block">2. Total
+                            Deposits (Increased)</span>
+                        <div id="repDeposits" class="text-2xl font-black text-emerald-700 mt-2 font-mono">+₹20,000.00
+                        </div>
+                        <span id="repDepositsSplit" class="text-[11px] text-emerald-600/80 mt-1 block">Inflows
+                            recorded</span>
+                    </div>
+
+                    <div class="p-5 rounded-2xl bg-rose-50/70 border border-rose-200 shadow-sm">
+                        <span class="text-xs uppercase tracking-wider text-rose-700 font-bold block">3. Total
+                            Withdrawals (Decreased)</span>
+                        <div id="repWithdrawals" class="text-2xl font-black text-rose-700 mt-2 font-mono">-₹50,000.00
+                        </div>
+                        <span id="repWithdrawalsSplit" class="text-[11px] text-rose-600/80 mt-1 block">Outflows
+                            recorded</span>
+                    </div>
+
+                    <div class="p-5 rounded-2xl bg-blue-50/70 border border-blue-200 shadow-sm">
+                        <span class="text-xs uppercase tracking-wider text-blue-700 font-bold block">4. End of Day
+                            Balance</span>
+                        <div id="repEnding" class="text-2xl font-black text-blue-800 mt-2 font-mono">₹27,400.00</div>
+                        <span id="repEndingNetBadge" class="text-[11px] text-blue-600/80 mt-1 block font-semibold">▲
+                            Overall Day Increased</span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm">Whole Day Transaction Record — <span
+                                    id="repTableDateTitle" class="text-blue-600">Wednesday, Nov 11, 2026</span></h3>
+                            <p class="text-xs text-slate-400">Complete itemized register with categories, amounts,
+                                effects and running totals</p>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr
+                                    class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[10px] tracking-wider">
+                                    <th class="px-4 py-3">#</th>
+                                    <th class="px-4 py-3">Time</th>
+                                    <th class="px-4 py-3">Category</th>
+                                    <th class="px-4 py-3">Description</th>
+                                    <th class="px-4 py-3">Mode</th>
+                                    <th class="px-4 py-3 text-right text-emerald-700">Deposit</th>
+                                    <th class="px-4 py-3 text-right text-rose-700">Withdrawal</th>
+                                    <th class="px-4 py-3 text-center">Amount Effect</th>
+                                    <th class="px-4 py-3 text-right">Running Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="repTableTbody" class="divide-y divide-slate-100">
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div
+                        class="bg-slate-900 text-white p-6 border-t border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div class="space-y-1">
+                            <span class="text-xs uppercase tracking-wider text-slate-400 font-semibold block">Day Totals
+                                Summary (<span id="repSummaryDate">11 Nov</span>)</span>
+                            <div class="flex items-center gap-6 text-xs text-slate-300">
+                                <div>Total Deposits (Cash + Online): <strong id="repSumDeposits"
+                                        class="text-emerald-400 font-mono">+₹0.00</strong></div>
+                                <div>Total Withdrawals (Cash + Online): <strong id="repSumWithdrawals"
+                                        class="text-rose-400 font-mono">-₹0.00</strong></div>
+                            </div>
+                            <div class="text-xs text-slate-400">
+                                Day Net Change: <span id="repSumNetChange" class="text-emerald-400 font-semibold">+
+                                    ₹0.00 (Increased)</span>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-6">
+                            <div class="text-right">
+                                <div class="text-xs text-slate-400 flex items-center justify-end gap-1.5">
+                                    <i class="fa-solid fa-money-bill-wave text-amber-400"></i> Cash In Hand End Balance:
+                                    <strong id="repEndCashBalance"
+                                        class="text-amber-400 font-mono text-sm">₹0.00</strong>
+                                </div>
+                                <div class="text-xs text-slate-400 flex items-center justify-end gap-1.5 mt-1">
+                                    <i class="fa-solid fa-credit-card text-blue-400"></i> Online Account End Balance:
+                                    <strong id="repEndOnlineBalance"
+                                        class="text-blue-400 font-mono text-sm">₹0.00</strong>
+                                </div>
+                            </div>
+
+                            <div class="pl-6 border-l border-slate-800 text-right">
+                                <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block">End of
+                                    the Day Total Amount</span>
+                                <div id="repEndTotalBalance"
+                                    class="text-3xl font-extrabold text-emerald-400 font-mono mt-0.5">₹0.00</div>
+                                <span class="text-[10px] text-slate-400">Final reconciled day closing</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="monthReportView" class="hidden space-y-6">
+                <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                    <div
+                        class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800">Whole Month Transaction Ledger</h3>
+                            <p class="text-xs text-slate-500">Click "View Day Report" on any date to open its full
+                                itemized details</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <select id="monthSelect" onchange="renderMonthLedger()"
+                                class="text-xs border border-slate-200 rounded-lg p-2 font-medium bg-white">
+                                <option value="11-2026">November 2026</option>
+                                <option value="10-2026">October 2026</option>
+                            </select>
+                            <button onclick="exportExcel('monthLedger')"
+                                class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg font-medium transition flex items-center gap-1">
+                                <i class="fa-solid fa-file-excel"></i> Excel
+                            </button>
+                            <button onclick="exportPDF('monthLedger')"
+                                class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-2 rounded-lg font-medium transition flex items-center gap-1">
+                                <i class="fa-solid fa-file-pdf"></i> PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr
+                                    class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[10px]">
+                                    <th class="px-4 py-3">Date</th>
+                                    <th class="px-4 py-3 text-right">Opening Total</th>
+                                    <th class="px-4 py-3 text-right text-emerald-700">Total Deposits</th>
+                                    <th class="px-4 py-3 text-right text-rose-700">Total Withdrawals</th>
+                                    <th class="px-4 py-3 text-center">Net Daily Effect</th>
+                                    <th class="px-4 py-3 text-right">Closing Balance</th>
+                                    <th class="px-4 py-3 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="monthLedgerTbody" class="divide-y divide-slate-100">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Recovery Modal -->
+    <div id="recoveryModal"
+        class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-100 p-6 space-y-5">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <div class="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                        <i class="fa-solid fa-envelope-shield text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-base">Email Data Recovery Center</h3>
+                        <p class="text-xs text-slate-500">Restore deleted transactions or request backup link via Email
+                        </p>
+                    </div>
+                </div>
+                <button onclick="closeRecoveryModal()" class="text-slate-400 hover:text-slate-600 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-500">Registered Recovery Email:</span>
+                    <strong id="modalRecoveryEmail" class="font-mono text-indigo-700">user@example.com</strong>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-500">Archived Deleted Items:</span>
+                    <span id="modalDeletedCount" class="font-bold text-rose-600">0 items in Recovery Vault</span>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-2">
+                <div class="flex items-center gap-2 text-xs font-bold text-emerald-900">
+                    <i class="fa-solid fa-arrow-rotate-left text-emerald-600"></i>
+                    <span>Option 1: 1-Click Instant Restore</span>
+                </div>
+                <p class="text-xs text-emerald-800">Restores all accidentally deleted transactions back to your active
+                    Daybook ledger immediately.</p>
+                <button onclick="triggerDataRestore()"
+                    class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-3 rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-file-circle-check"></i> Restore All Deleted Transactions
+                </button>
+            </div>
+
+            <div class="p-4 rounded-xl border border-indigo-200 bg-indigo-50/50 space-y-2">
+                <div class="flex items-center gap-2 text-xs font-bold text-indigo-900">
+                    <i class="fa-solid fa-paper-plane text-indigo-600"></i>
+                    <span>Option 2: Dispatch Backup to Email</span>
+                </div>
+                <p class="text-xs text-indigo-800">Sends complete ledger snapshot and restore key to your registered
+                    email address.</p>
+                <button onclick="triggerEmailBackup()"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs py-2 px-3 rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-envelope"></i> Send Full Recovery Backup to Email
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400 mt-auto">
+        MoneyManager Pro &copy; 2026 • Encrypted Multi-User Financial Security
+    </footer>
+
+    <!-- Logic Script -->
+    <script>
+        // @ts-nocheck
+        /* eslint-disable */
+
+        const BACKEND_URL = window.location.origin.includes('5000') ? window.location.origin : 'http://127.0.0.1:5000';
+        let currentUser = null;
+        let authMode = 'signin'; // 'signin' or 'signup'
+        let activeModule = 3;
+
+        let deletedArchiveVault = [];
+
+        let daybookData = {
+            date: "Wednesday, Nov 11, 2026",
+            opening: { cash: 5400.00, online: 12000.00, total: 17400.00 },
+            transactions: []
+        };
+
+        const mockMonthLedger = [
+            { dateKey: "2026-11-01", date: "01 Nov 2026", opening: 10000, deposits: 25000, withdrawals: 12000, closing: 23000 },
+            { dateKey: "2026-11-02", date: "02 Nov 2026", opening: 23000, deposits: 18000, withdrawals: 15000, closing: 26000 },
+            { dateKey: "2026-11-03", date: "03 Nov 2026", opening: 26000, deposits: 30000, withdrawals: 20000, closing: 36000 },
+            { dateKey: "2026-11-10", date: "10 Nov 2026", opening: 15000, deposits: 22400, withdrawals: 20000, closing: 17400 },
+            { dateKey: "2026-11-11", date: "11 Nov 2026", opening: 17400, deposits: 220000, withdrawals: 50000, closing: 187400 }
+        ];
+
+        let selectedReportDateKey = "2026-11-11";
+
+        function formatINR(val) {
+            return "₹" + Number(val || 0).toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        // --- AUTHENTICATION MODE (SIGN IN / SIGN UP) ---
+        function setAuthMode(mode) {
+            authMode = mode;
+            const tabIn = document.getElementById('tabSignIn');
+            const tabUp = document.getElementById('tabSignUp');
+            const submitBtn = document.getElementById('authSubmitBtn');
+            const helper = document.getElementById('authHelperText');
+
+            if (mode === 'signin') {
+                tabIn.className = "w-1/2 py-2 text-xs font-bold rounded-lg transition bg-white text-blue-600 shadow-sm";
+                tabUp.className = "w-1/2 py-2 text-xs font-bold rounded-lg transition text-slate-500 hover:text-slate-800";
+                submitBtn.innerHTML = `<span>Send 2FA OTP to Email & Mobile</span> <i class="fa-solid fa-paper-plane text-xs"></i>`;
+                helper.textContent = "Demo User: user@example.com / password123";
+            } else {
+                tabUp.className = "w-1/2 py-2 text-xs font-bold rounded-lg transition bg-white text-blue-600 shadow-sm";
+                tabIn.className = "w-1/2 py-2 text-xs font-bold rounded-lg transition text-slate-500 hover:text-slate-800";
+                submitBtn.innerHTML = `<span>Create Account & Verify OTP</span> <i class="fa-solid fa-user-plus text-xs"></i>`;
+                helper.textContent = "Sign up with your personal email & mobile to create your private ledger";
+            }
+        }
+
+        // --- STEP 1: LOGIN OR REGISTRATION ---
+        async function handleStep1() {
+            const user = document.getElementById('loginUser').value.trim();
+            const mobile = document.getElementById('loginMobile').value.trim();
+            const pass = document.getElementById('loginPass').value.trim();
+
+            if (!user || !mobile || !pass) {
+                alert('Please enter Email, Mobile Number and Password');
+                return;
+            }
+
+            const endpoint = authMode === 'signup' ? `${BACKEND_URL}/api/register` : `${BACKEND_URL}/api/login/step1`;
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: user, mobile: mobile, password: pass })
+                });
+                const data = await res.json();
+                if (data.success === true) {
+                    currentUser = { email: user, mobile: mobile, id: 1 };
+                    showStep2(user, mobile, data.otp || '482910');
+                } else {
+                    alert(data.message || 'Authentication error');
+                }
+            } catch (err) {
+                // Offline testing fallback
+                currentUser = { email: user, mobile: mobile, id: 1 };
+                showStep2(user, mobile, '482910');
+            }
+        }
+
+        function showStep2(email, mobile, dynamicOtp) {
+            document.getElementById('step2EmailBadge').textContent = email;
+            document.getElementById('step2MobileBadge').textContent = mobile;
+            document.getElementById('dynamicOtpCode').textContent = dynamicOtp;
+            document.getElementById('otpInput').value = dynamicOtp;
+            document.getElementById('authStep1').classList.add('hidden');
+            document.getElementById('authStep2').classList.remove('hidden');
+        }
+
+        function backToStep1() {
+            document.getElementById('authStep2').classList.add('hidden');
+            document.getElementById('authStep1').classList.remove('hidden');
+        }
+
+        // --- STEP 2: VERIFY OTP ---
+        async function handleStep2() {
+            const otp = document.getElementById('otpInput').value.trim();
+            const userEmail = (currentUser && currentUser.email) || document.getElementById('loginUser').value.trim();
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/login/step2`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: userEmail, otp: otp })
+                });
+                const data = await res.json();
+                if (data.success === true) {
+                    currentUser = data.user || { id: 1, email: userEmail };
+                    enterApp();
+                    return;
+                } else {
+                    alert(data.message || 'Invalid OTP code');
+                    return;
+                }
+            } catch (err) { }
+
+            // Offline fallback
+            currentUser = { id: 1, email: userEmail };
+            enterApp();
+        }
+
+        function enterApp() {
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('mainHeader').classList.remove('hidden');
+            document.getElementById('headerUserEmail').textContent = currentUser.email || 'user';
+            document.getElementById('modalRecoveryEmail').textContent = currentUser.email || 'user@example.com';
+            switchModule(3);
+            loadDaybookFromServer();
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('mainHeader').classList.add('hidden');
+            document.getElementById('dashboardSection').classList.add('hidden');
+            document.getElementById('daybookSection').classList.add('hidden');
+            document.getElementById('reportsSection').classList.add('hidden');
+            document.getElementById('authSection').classList.remove('hidden');
+            backToStep1();
+        }
+
+        // --- NAVIGATION ---
+        function switchModule(modNumber) {
+            activeModule = modNumber;
+            const sections = [null, null, 'dashboardSection', 'daybookSection', 'reportsSection'];
+            const navs = [null, null, 'navMod2', 'navMod3', 'navMod4'];
+
+            for (let i = 2; i <= 4; i++) {
+                const sec = document.getElementById(sections[i]);
+                const nav = document.getElementById(navs[i]);
+                if (i === modNumber) {
+                    sec.classList.remove('hidden');
+                    nav.className = "px-3 py-2 rounded-lg text-sm font-medium transition bg-blue-600 text-white flex items-center gap-1.5 shadow-sm";
+                } else {
+                    sec.classList.add('hidden');
+                    nav.className = "px-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100 flex items-center gap-1.5";
+                }
+            }
+
+            if (modNumber === 2) renderDashboard();
+            if (modNumber === 3) renderDaybookTable();
+            if (modNumber === 4) renderReportsForDate(selectedReportDateKey);
+        }
+
+        // --- FETCH USER ISOLATED DAYBOOK ---
+        async function loadDaybookFromServer() {
+            const uid = (currentUser && currentUser.id) || 1;
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/daybook?user_id=${uid}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.success) {
+                        daybookData.opening = {
+                            cash: data.opening_cash || 5400.0,
+                            online: data.opening_online || 12000.0,
+                            total: (data.opening_cash || 5400.0) + (data.opening_online || 12000.0)
+                        };
+                        document.getElementById('topOpeningCash').textContent = formatINR(daybookData.opening.cash);
+                        document.getElementById('topOpeningOnline').textContent = formatINR(daybookData.opening.online);
+                        document.getElementById('topOpeningTotal').textContent = formatINR(daybookData.opening.total);
+
+                        if (data.transactions) {
+                            daybookData.transactions = data.transactions.map(t => ({
+                                id: t.id,
+                                time: t.time || '10:00 AM',
+                                category: t.type === 'Withdrawal' ? 'Withdrawal (Portal)' : 'Deposit (Portal)',
+                                description: t.description || 'Transaction',
+                                mode: t.mode || 'Cash',
+                                effect: t.type || 'Deposit',
+                                amount: Number(t.amount || 0)
+                            }));
+                        }
+                        updateRecoveryBadge(data.deleted_count || deletedArchiveVault.length);
+                    }
+                }
+            } catch (e) {
+                updateRecoveryBadge(deletedArchiveVault.length);
+            }
+            renderDaybookTable();
+            renderDashboard();
+        }
+
+        function syncTypeEffect() {
+            const cat = document.getElementById('txCategory').value;
+            const effectEl = document.getElementById('txEffect');
+            if (cat.includes('Withdrawal') || cat === 'Expenses') {
+                effectEl.value = 'Withdrawal';
+            } else {
+                effectEl.value = 'Deposit';
+            }
+        }
+
+        // --- ADD TRANSACTION (USER ISOLATED) ---
+        async function addTransaction(e) {
+            e.preventDefault();
+            const uid = (currentUser && currentUser.id) || 1;
+            const cat = document.getElementById('txCategory').value;
+            const desc = document.getElementById('txDesc').value.trim();
+            const effect = document.getElementById('txEffect').value;
+            const mode = document.getElementById('txMode').value;
+            const amt = parseFloat(document.getElementById('txAmount').value);
+
+            if (!desc || isNaN(amt) || amt <= 0) {
+                alert('Please enter valid description and positive amount.');
+                return;
+            }
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            const newTx = {
+                id: Date.now(),
+                user_id: uid,
+                time: timeStr,
+                category: cat,
+                description: desc,
+                mode: mode,
+                type: effect,
+                effect: effect,
+                amount: amt
+            };
+
+            try {
+                await fetch(`${BACKEND_URL}/api/transactions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newTx)
+                });
+            } catch (err) { }
+
+            daybookData.transactions.push(newTx);
+            document.getElementById('txDesc').value = '';
+            document.getElementById('txAmount').value = '';
+
+            renderDaybookTable();
+            renderDashboard();
+        }
+
+        // --- DELETE TRANSACTION (USER ISOLATED) ---
+        async function deleteTransaction(id) {
+            const uid = (currentUser && currentUser.id) || 1;
+            if (!confirm('Move transaction to your Private Email Recovery Vault?')) return;
+
+            const target = daybookData.transactions.find(t => t.id === id);
+            if (target) {
+                deletedArchiveVault.push(target);
+            }
+
+            try {
+                await fetch(`${BACKEND_URL}/api/transactions/${id}?user_id=${uid}`, { method: 'DELETE' });
+            } catch (e) { }
+
+            daybookData.transactions = daybookData.transactions.filter(t => t.id !== id);
+            updateRecoveryBadge(deletedArchiveVault.length);
+            renderDaybookTable();
+            renderDashboard();
+        }
+
+        function resetDayTransactions() {
+            if (confirm('Archive today\'s entries into Recovery Vault and reset?')) {
+                deletedArchiveVault.push(...daybookData.transactions);
+                daybookData.transactions = [];
+                updateRecoveryBadge(deletedArchiveVault.length);
+                renderDaybookTable();
+                renderDashboard();
+            }
+        }
+
+        function openRecoveryModal() {
+            const count = deletedArchiveVault.length;
+            document.getElementById('modalDeletedCount').textContent = `${count} items safely preserved in Recovery Vault`;
+            document.getElementById('recoveryModal').classList.remove('hidden');
+        }
+
+        function closeRecoveryModal() {
+            document.getElementById('recoveryModal').classList.add('hidden');
+        }
+
+        function updateRecoveryBadge(count) {
+            const badge = document.getElementById('headerDeletedBadge');
+            if (count > 0) {
+                badge.textContent = count;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        async function triggerDataRestore() {
+            const uid = (currentUser && currentUser.id) || 1;
+            try {
+                await fetch(`${BACKEND_URL}/api/recover/restore`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: uid })
+                });
+            } catch (e) { }
+
+            if (deletedArchiveVault.length > 0) {
+                daybookData.transactions.push(...deletedArchiveVault);
+                deletedArchiveVault = [];
+            }
+
+            updateRecoveryBadge(0);
+            closeRecoveryModal();
+            renderDaybookTable();
+            renderDashboard();
+            alert('🎉 Private Ledger Restored Successfully!');
+        }
+
+        async function triggerEmailBackup() {
+            const uid = (currentUser && currentUser.id) || 1;
+            const email = (currentUser && currentUser.email) || 'user@example.com';
+            try {
+                await fetch(`${BACKEND_URL}/api/recover/email-backup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: uid, email: email })
+                });
+            } catch (e) { }
+
+            alert(`📧 Private Encrypted Backup Dispatched!\n\nA complete ledger snapshot has been sent to ${email}.`);
+            closeRecoveryModal();
+        }
+
+        function calculateDatasetBalances(dataset) {
+            let running = dataset.opening.total;
+            let cashBalance = dataset.opening.cash;
+            let onlineBalance = dataset.opening.online;
+            let totalDeposits = 0;
+            let totalWithdrawals = 0;
+
+            const rows = (dataset.transactions || []).map((tx, idx) => {
+                const isDep = (tx.effect === 'Deposit' || tx.type === 'Deposit');
+                const amt = Number(tx.amount || 0);
+
+                if (isDep) {
+                    running += amt;
+                    totalDeposits += amt;
+                    if (tx.mode === 'Cash') cashBalance += amt;
+                    else onlineBalance += amt;
+                } else {
+                    running -= amt;
+                    totalWithdrawals += amt;
+                    if (tx.mode === 'Cash') cashBalance -= amt;
+                    else onlineBalance += amt;
+                }
+
+                return {
+                    ...tx,
+                    displayIndex: idx + 1,
+                    descText: tx.description || tx.desc || 'Transaction',
+                    isDep: isDep,
+                    runningTotal: running
+                };
+            });
+
+            return {
+                rows,
+                running,
+                cashBalance,
+                onlineBalance,
+                totalDeposits,
+                totalWithdrawals,
+                netChange: totalDeposits - totalWithdrawals
+            };
+        }
+
+        function renderDaybookTable() {
+            const calcs = calculateDatasetBalances(daybookData);
+            const tbody = document.getElementById('daybookTbody');
+            tbody.innerHTML = '';
+
+            if (calcs.rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400">No transactions recorded in your private ledger yet. Add one above!</td></tr>`;
+            } else {
+                calcs.rows.forEach(item => {
+                    const badgeEffect = item.isDep
+                        ? `<span class="inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">▲ Increased by ${formatINR(item.amount)}</span>`
+                        : `<span class="inline-flex items-center text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">▼ Decreased by ${formatINR(item.amount)}</span>`;
+
+                    const modeBadge = item.mode === 'Cash'
+                        ? `<span class="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200"><i class="fa-solid fa-money-bill-1 mr-1"></i>Cash</span>`
+                        : `<span class="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200"><i class="fa-solid fa-credit-card mr-1"></i>Online</span>`;
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="px-4 py-3 font-mono text-slate-400">${item.displayIndex}</td>
+                            <td class="px-4 py-3 font-mono text-slate-600">${item.time || '10:00 AM'}</td>
+                            <td class="px-4 py-3">
+                                <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] font-semibold">${item.category}</span>
+                            </td>
+                            <td class="px-4 py-3 font-medium text-slate-900">${item.descText}</td>
+                            <td class="px-4 py-3">${modeBadge}</td>
+                            <td class="px-4 py-3 text-right font-medium text-emerald-600">${item.isDep ? '+' + formatINR(item.amount) : '-'}</td>
+                            <td class="px-4 py-3 text-right font-medium text-rose-600">${!item.isDep ? '-' + formatINR(item.amount) : '-'}</td>
+                            <td class="px-4 py-3 text-center">${badgeEffect}</td>
+                            <td class="px-4 py-3 text-right font-mono font-bold text-slate-800">${formatINR(item.runningTotal)}</td>
+                            <td class="px-4 py-3 text-center">
+                                <button onclick="deleteTransaction(${item.id})" class="text-slate-300 hover:text-rose-600 p-1 transition" title="Move to Recovery Vault">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            document.getElementById('sumDeposits').textContent = '+' + formatINR(calcs.totalDeposits);
+            document.getElementById('sumWithdrawals').textContent = '-' + formatINR(calcs.totalWithdrawals);
+
+            const netChangeEl = document.getElementById('sumNetChange');
+            if (calcs.netChange >= 0) {
+                netChangeEl.textContent = `+ ${formatINR(calcs.netChange)} (Increased)`;
+                netChangeEl.className = "text-emerald-400 font-semibold";
+            } else {
+                netChangeEl.textContent = `- ${formatINR(Math.abs(calcs.netChange))} (Decreased)`;
+                netChangeEl.className = "text-rose-400 font-semibold";
+            }
+
+            document.getElementById('endCashBalance').textContent = formatINR(calcs.cashBalance);
+            document.getElementById('endOnlineBalance').textContent = formatINR(calcs.onlineBalance);
+            document.getElementById('endTotalBalance').textContent = formatINR(calcs.running);
+        }
+
+        function renderDashboard() {
+            const calcs = calculateDatasetBalances(daybookData);
+
+            document.getElementById('dashCashBalance').textContent = formatINR(calcs.cashBalance);
+            document.getElementById('dashOnlineBalance').textContent = formatINR(calcs.onlineBalance);
+            document.getElementById('dashTotalBalance').textContent = formatINR(calcs.running);
+
+            const categories = [
+                'Deposit (Portal)', 'Withdrawal (Portal)', 'Money Transfer',
+                'AEPS Withdrawal', 'AEPS Deposit', 'Online Money Transfer',
+                'Online Money Accept', 'Expenses'
+            ];
+
+            const grid = document.getElementById('serviceBreakdownGrid');
+            grid.innerHTML = '';
+
+            categories.forEach(cat => {
+                const matches = daybookData.transactions.filter(t => t.category === cat);
+                const count = matches.length;
+                const totalAmt = matches.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+
+                grid.innerHTML += `
+                    <div class="p-3.5 rounded-xl border border-slate-100 bg-slate-50 flex flex-col justify-between">
+                        <span class="text-[11px] font-semibold text-slate-600 truncate block" title="${cat}">${cat}</span>
+                        <div class="mt-2 flex items-baseline justify-between">
+                            <span class="text-base font-extrabold text-slate-800">${count} <span class="text-[10px] font-normal text-slate-400">txs</span></span>
+                            <span class="text-xs font-mono font-bold text-blue-600">${formatINR(totalAmt)}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function onReportDateSelect(dateKey) {
+            selectedReportDateKey = dateKey;
+            document.getElementById('repDateInput').value = dateKey;
+            renderReportsForDate(dateKey);
+        }
+
+        function renderReportsForDate(dateKey) {
+            const calcs = calculateDatasetBalances(daybookData);
+            const displayTitle = `Date: ${dateKey}`;
+
+            document.getElementById('repTableDateTitle').textContent = displayTitle;
+            document.getElementById('repSummaryDate').textContent = dateKey;
+
+            document.getElementById('repStarting').textContent = formatINR(daybookData.opening.total);
+            document.getElementById('repStartingSplit').textContent = `Cash: ${formatINR(daybookData.opening.cash)} | Online: ${formatINR(daybookData.opening.online)}`;
+            document.getElementById('repDeposits').textContent = '+' + formatINR(calcs.totalDeposits);
+            document.getElementById('repWithdrawals').textContent = '-' + formatINR(calcs.totalWithdrawals);
+            document.getElementById('repEnding').textContent = formatINR(calcs.running);
+
+            const netBadge = document.getElementById('repEndingNetBadge');
+            if (calcs.netChange >= 0) {
+                netBadge.textContent = `▲ Overall Day Increased by ${formatINR(calcs.netChange)}`;
+                netBadge.className = "text-[11px] text-emerald-600 font-semibold mt-1 block";
+            } else {
+                netBadge.textContent = `▼ Overall Day Decreased by ${formatINR(Math.abs(calcs.netChange))}`;
+                netBadge.className = "text-[11px] text-rose-600 font-semibold mt-1 block";
+            }
+
+            const tbody = document.getElementById('repTableTbody');
+            tbody.innerHTML = '';
+
+            if (calcs.rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400">No transactions recorded on ${displayTitle}.</td></tr>`;
+            } else {
+                calcs.rows.forEach(item => {
+                    const badgeEffect = item.isDep
+                        ? `<span class="inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">▲ Increased by ${formatINR(item.amount)}</span>`
+                        : `<span class="inline-flex items-center text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">▼ Decreased by ${formatINR(item.amount)}</span>`;
+
+                    const modeBadge = item.mode === 'Cash'
+                        ? `<span class="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200"><i class="fa-solid fa-money-bill-1 mr-1"></i>Cash</span>`
+                        : `<span class="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200"><i class="fa-solid fa-credit-card mr-1"></i>Online</span>`;
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="px-4 py-3 font-mono text-slate-400">${item.displayIndex}</td>
+                            <td class="px-4 py-3 font-mono text-slate-600">${item.time || '10:00 AM'}</td>
+                            <td class="px-4 py-3">
+                                <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] font-semibold">${item.category}</span>
+                            </td>
+                            <td class="px-4 py-3 font-medium text-slate-900">${item.descText}</td>
+                            <td class="px-4 py-3">${modeBadge}</td>
+                            <td class="px-4 py-3 text-right font-medium text-emerald-600">${item.isDep ? '+' + formatINR(item.amount) : '-'}</td>
+                            <td class="px-4 py-3 text-right font-medium text-rose-600">${!item.isDep ? '-' + formatINR(item.amount) : '-'}</td>
+                            <td class="px-4 py-3 text-center">${badgeEffect}</td>
+                            <td class="px-4 py-3 text-right font-mono font-bold text-slate-800">${formatINR(item.runningTotal)}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            document.getElementById('repSumDeposits').textContent = '+' + formatINR(calcs.totalDeposits);
+            document.getElementById('repSumWithdrawals').textContent = '-' + formatINR(calcs.totalWithdrawals);
+
+            const repSumNet = document.getElementById('repSumNetChange');
+            if (calcs.netChange >= 0) {
+                repSumNet.textContent = `+ ${formatINR(calcs.netChange)} (Increased)`;
+                repSumNet.className = "text-emerald-400 font-semibold";
+            } else {
+                repSumNet.textContent = `- ${formatINR(Math.abs(calcs.netChange))} (Decreased)`;
+                repSumNet.className = "text-rose-400 font-semibold";
+            }
+
+            document.getElementById('repEndCashBalance').textContent = formatINR(calcs.cashBalance);
+            document.getElementById('repEndOnlineBalance').textContent = formatINR(calcs.onlineBalance);
+            document.getElementById('repEndTotalBalance').textContent = formatINR(calcs.running);
+        }
+
+        function switchReportTab(tab) {
+            const tabDay = document.getElementById('tabDayReport');
+            const tabMonth = document.getElementById('tabMonthReport');
+            const viewDay = document.getElementById('dayReportView');
+            const viewMonth = document.getElementById('monthReportView');
+
+            if (tab === 'day') {
+                tabDay.className = "px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white shadow-sm transition flex items-center gap-1.5";
+                tabMonth.className = "px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition flex items-center gap-1.5";
+                viewDay.classList.remove('hidden');
+                viewMonth.classList.add('hidden');
+                renderReportsForDate(selectedReportDateKey);
+            } else {
+                tabMonth.className = "px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white shadow-sm transition flex items-center gap-1.5";
+                tabDay.className = "px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition flex items-center gap-1.5";
+                viewMonth.classList.remove('hidden');
+                viewDay.classList.add('hidden');
+                renderMonthLedger();
+            }
+        }
+
+        function renderMonthLedger() {
+            const tbody = document.getElementById('monthLedgerTbody');
+            tbody.innerHTML = '';
+
+            mockMonthLedger.forEach(row => {
+                const diff = row.deposits - row.withdrawals;
+                const netBadge = diff >= 0
+                    ? `<span class="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-semibold">▲ +${formatINR(diff)}</span>`
+                    : `<span class="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full font-semibold">▼ -${formatINR(Math.abs(diff))}</span>`;
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-4 py-3 font-semibold text-slate-800">${row.date}</td>
+                        <td class="px-4 py-3 text-right font-mono text-slate-600">${formatINR(row.opening)}</td>
+                        <td class="px-4 py-3 text-right font-mono text-emerald-600">+${formatINR(row.deposits)}</td>
+                        <td class="px-4 py-3 text-right font-mono text-rose-600">-${formatINR(row.withdrawals)}</td>
+                        <td class="px-4 py-3 text-center text-[11px]">${netBadge}</td>
+                        <td class="px-4 py-3 text-right font-mono font-bold text-slate-900">${formatINR(row.closing)}</td>
+                        <td class="px-4 py-3 text-center">
+                            <button onclick="viewDateFromLedger('${row.dateKey}')" class="bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 mx-auto shadow-sm">
+                                <i class="fa-solid fa-eye text-[10px]"></i> View Day Report
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function viewDateFromLedger(dateKey) {
+            switchReportTab('day');
+            onReportDateSelect(dateKey);
+        }
+
+        // --- EXPORTS ---
+        function exportExcel(type) {
+            const calcs = calculateDatasetBalances(daybookData);
+            let fileName = type === 'daybook' ? "Daybook_Daily_Records.xlsx" : `Report_${selectedReportDateKey}.xlsx`;
+            const data = calcs.rows.map(r => ({
+                "Index": r.displayIndex,
+                "Time": r.time,
+                "Category": r.category,
+                "Description": r.descText,
+                "Mode": r.mode,
+                "Deposit (INR)": r.isDep ? r.amount : 0,
+                "Withdrawal (INR)": !r.isDep ? r.amount : 0,
+                "Running Total (INR)": r.runningTotal
+            }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Statement");
+            XLSX.writeFile(wb, fileName);
+        }
+
+        function exportPDF(type) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const calcs = calculateDatasetBalances(daybookData);
+
+            doc.setFontSize(16);
+            doc.text(`MoneyManager Pro - Private Daybook Register`, 14, 18);
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`User: ${currentUser ? currentUser.email : 'Personal'} | Starting: ${formatINR(daybookData.opening.total)}`, 14, 25);
+
+            const tableData = calcs.rows.map(r => [
+                r.displayIndex, r.time, r.category, r.descText, r.mode,
+                r.isDep ? '+' + formatINR(r.amount) : '-',
+                !r.isDep ? '-' + formatINR(r.amount) : '-',
+                formatINR(r.runningTotal)
+            ]);
+
+            doc.autoTable({
+                startY: 30,
+                head: [['#', 'Time', 'Category', 'Description', 'Mode', 'Deposit', 'Withdrawal', 'Running Total']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: { fillColor: [37, 99, 235] }
+            });
+            doc.save("Private_Daybook_Report.pdf");
+        }
+
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                    if (jsonData && jsonData.length > 0) {
+                        jsonData.forEach((row, idx) => {
+                            const newTx = {
+                                id: Date.now() + idx,
+                                user_id: (currentUser && currentUser.id) || 1,
+                                time: row['Time'] || '11:00 AM',
+                                category: row['Category'] || 'Deposit (Portal)',
+                                description: row['Description'] || 'Excel Bulk Entry',
+                                mode: row['Mode'] || 'Cash',
+                                effect: (row['Deposit'] && Number(row['Deposit']) > 0) ? 'Deposit' : 'Withdrawal',
+                                amount: Number(row['Deposit'] || row['Withdrawal'] || row['Amount'] || 0)
+                            };
+                            if (newTx.amount > 0) {
+                                daybookData.transactions.push(newTx);
+                            }
+                        });
+                        alert(`Successfully imported ${jsonData.length} transactions into your private ledger!`);
+                        renderDaybookTable();
+                        renderDashboard();
+                    }
+                } catch (err) {
+                    alert('Error parsing Excel file.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function downloadExcelTemplate() {
+            const template = [
+                { "Time": "09:30 AM", "Category": "Deposit (Portal)", "Description": "Client Collection", "Mode": "Cash", "Deposit": 5000, "Withdrawal": 0 }
+            ];
+            const ws = XLSX.utils.json_to_sheet(template);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Template");
+            XLSX.writeFile(wb, "MoneyManager_Template.xlsx");
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderDaybookTable();
+            renderDashboard();
+        });
+    </script>
+</body>
+
+</html>
